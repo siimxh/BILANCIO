@@ -2,7 +2,7 @@
 import { $, esc, uid, today, round2, eur, toast } from '../util.js';
 import { modifica, state } from '../store.js';
 import { TIPI_MOV } from '../model.js';
-import { saldoAl, indovinaCategoria, principale, contoById } from '../engine.js';
+import { saldoAl, indovinaCategoria, principale, contoById, chiaveBanca } from '../engine.js';
 
 export function apri(title, body, onReady) {
   const d = $('#dlg');
@@ -44,6 +44,12 @@ export function formMovimento(m = null, preset = {}) {
         <label class="f">Si ripete ogni mese?<select name="fissa"><option value="">come la categoria</option><option value="1" ${m.fissa === true ? 'selected' : ''}>Sì, è fissa</option><option value="0" ${m.fissa === false ? 'selected' : ''}>No</option></select></label>
       </div>
       <label class="f">Nota<input name="note" value="${esc(m.note || '')}"></label>
+      ${m.descrBanca ? `<div class="banca">
+        <div class="k">Nome che arriva dalla banca</div><div class="bn">${esc(m.descrBanca)}</div>
+        <label class="chk"><input type="checkbox" name="ricorda" ${m.daControllare ? 'checked' : ''}> Ricordatelo: la prossima volta che arriva, usa questo nome e questa categoria</label>
+        <label class="f" data-ric>Riconoscilo quando il nome della banca contiene<input name="kw" value="${esc(chiaveBanca(m.descrBanca))}"></label>
+        <p class="kid" data-ric>Accorcia la parola se il nome cambia ogni volta (es. "sumup *stadio" invece di "sumup *stadio 4471").</p>
+      </div>` : ''}
       <div class="btns">
         <button class="btn pri" type="submit">${nuovo ? 'Aggiungi' : 'Salva'}</button>
         ${nuovo ? '<button class="btn" type="button" id="maltro">Aggiungi e inserisci un altro</button>' : '<button class="btn danger" type="button" id="mdel">Elimina</button>'}
@@ -65,6 +71,7 @@ export function formMovimento(m = null, preset = {}) {
       d.querySelectorAll('#mtipo button').forEach(b => b.classList.toggle('on', b.dataset.t === m.tipo));
     };
     sync();
+    if (f.ricorda) { const sr = () => d.querySelectorAll('[data-ric]').forEach(el => el.hidden = !f.ricorda.checked); sr(); f.ricorda.onchange = sr; }
     $('#mtipo', d).onclick = e => { const t = e.target.closest('[data-t]')?.dataset.t; if (t) { m.tipo = t; sync(); } };
     f.descr.oninput = () => { if (!f.categoria.value) { const c = indovinaCategoria(s, f.descr.value); if (c) f.categoria.value = c; } };
     const salva = altro => {
@@ -76,8 +83,23 @@ export function formMovimento(m = null, preset = {}) {
       if (m.tipo === 'spesa' || m.tipo === 'rimborso') out.categoria = f.categoria.value || 'Regali e altro';
       if (m.tipo === 'entrata') out.lavoro = f.lavoro.checked;
       if (m.tipo === 'spesa') { if (f.nd.value) out.nd = f.nd.value; if (f.fissa.value) out.fissa = f.fissa.value === '1'; }
-      modifica(st => { const i = st.movimenti.findIndex(x => x.id === m.id); if (i >= 0) st.movimenti[i] = out; else st.movimenti.push(out); });
-      toast(nuovo ? 'Aggiunto' : 'Salvato');
+      if (m.descrBanca) { out.descrBanca = m.descrBanca; if (m.fonte) out.fonte = m.fonte; }
+      const kw = f.ricorda?.checked ? f.kw.value.trim().toLowerCase() : '';
+      const regCat = m.tipo === 'entrata' ? (out.lavoro ? 'Entrata da lavoro' : 'Entrata non da lavoro') : out.categoria;
+      let altri = 0;
+      modifica(st => {
+        const i = st.movimenti.findIndex(x => x.id === m.id); if (i >= 0) st.movimenti[i] = out; else st.movimenti.push(out);
+        if (kw && regCat) {
+          st.regole = st.regole.filter(r => r[0].toLowerCase() !== kw);
+          st.regole.unshift([kw, regCat, out.descr]);
+          // sistemo anche gli altri ancora da controllare con lo stesso nome della banca
+          for (const x of st.movimenti) if (x.id !== out.id && x.daControllare && x.tipo === out.tipo && (' ' + (x.descrBanca || '').toLowerCase() + ' ').includes(kw)) {
+            x.descr = out.descr; x.daControllare = false; altri++;
+            if (x.tipo === 'entrata') x.lavoro = out.lavoro; else x.categoria = out.categoria;
+          }
+        }
+      });
+      toast(altri ? `Salvato, e sistemati altri ${altri} uguali` : kw ? 'Salvato e ricordato' : nuovo ? 'Aggiunto' : 'Salvato');
       if (altro) formMovimento(null, { tipo: m.tipo, conto: out.conto, data: out.data }); else chiudi();
     };
     f.onsubmit = e => { e.preventDefault(); salva(false); };

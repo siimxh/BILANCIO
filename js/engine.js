@@ -68,11 +68,31 @@ export const saldi = (s, d = today()) => s.conti.map(c => ({ ...c, saldo: saldoA
 export const catInfo = (s, nome) => s.categorie.find(c => c.nome === nome) || { nome: nome || 'Senza categoria', gruppo: 'desiderio', fissa: false };
 export const ndOf = (s, m) => m.nd || catInfo(s, m.categoria).gruppo;
 export const fissaOf = (s, m) => m.fissa ?? catInfo(s, m.categoria).fissa;
-export function indovinaCategoria(s, descr) {
-  const d = (descr || '').toLowerCase();
+// negozi che si riconoscono da soli. Le regole dell'utente vincono sempre su queste.
+export const DIZIONARIO = [
+  [['eni ', 'enilive', 'q8', 'tamoil', 'esso', 'ip ', 'api ', 'agip', 'benzin', 'carburant', 'distributore'], 'Trasporti'],
+  [['autostrad', 'telepass', 'trenitalia', 'italo', 'atac', 'cotral', 'tper', 'parchegg', 'easypark', 'uber', 'flixbus'], 'Trasporti'],
+  [['mcdonald', 'burger king', 'kfc', 'old wild west', 'roadhouse', 'pizzeri', 'sushi', 'ristorant', 'trattori', 'osteri', 'birreri', 'pub ', 'bar ', 'caffe', 'caffè', 'just eat', 'deliveroo', 'glovo'], 'Uscite e bar'],
+  [['conad', 'coop', 'lidl', 'eurospin', 'esselunga', 'carrefour', 'md ', 'md spa', 'penny', 'pam ', 'despar', 'tigre', 'ipercoop', 'aldi', 'sigma', 'crai', 'supermerc'], 'Spesa alimentare'],
+  [['zalando', 'amazon', 'amzn', 'vinted', 'shein', 'zara', 'h&m', 'decathlon', 'nike', 'adidas', 'foot locker', 'ebay', 'temu', 'aliexpress'], 'Shopping'],
+  [['spotify', 'netflix', 'disney', 'prime video', 'apple.com', 'google one', 'youtube', 'dazn', 'icloud', 'chatgpt', 'openai', 'playstation', 'xbox'], 'Abbonamenti'],
+  [['tabacc', 'tabaccheria', 'iqos', 'svapo'], 'Fumo'],
+  [['farmaci', 'parafarm', 'palestra', 'gym', 'mcfit', 'gymbeam', 'myprotein', 'ottica'], 'Salute e sport'],
+  [['very mobile', 'iliad', 'tim ', 'vodafone', 'windtre', 'ho. mobile', 'enel', 'hera', 'a2a'], 'Casa e bollette'],
+];
+const norm = t => ' ' + (t || '').toLowerCase().replace(/\s+/g, ' ') + ' ';
+// riconosce un movimento dalla descrizione della banca: { categoria, nome } oppure null
+export function riconosci(s, descr) {
+  const d = norm(descr);
   const r = s.regole.find(([k]) => k && d.includes(k.toLowerCase()));
-  return r ? r[1] : '';
+  if (r) return { categoria: r[1], nome: r[2] || '', da: 'regola' };
+  for (const [keys, cat] of DIZIONARIO) if (keys.some(k => d.includes(k))) return { categoria: cat, nome: '', da: 'dizionario' };
+  return null;
 }
+export const indovinaCategoria = (s, descr) => riconosci(s, descr)?.categoria || '';
+// parola chiave proposta per una regola: il nome della banca senza numeri e codici
+export const chiaveBanca = t => (t || '').toLowerCase().replace(/[0-9]{3,}/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 40);
+export const daSistemare = s => s.movimenti.filter(m => m.daControllare).sort((a, b) => b.data.localeCompare(a.data));
 
 // ====================== tasse ======================
 export const regimeAl = (s, d) => [...s.impostazioni.regimi].filter(r => r.dal <= d).pop() || { tipo: 'nessuna', pct: 0 };

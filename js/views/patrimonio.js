@@ -3,59 +3,71 @@ import { $, esc, eur, eur0, big, icon, card, today, dataLunga, MESI3, parse, uid
 import * as E from '../engine.js';
 import * as C from '../charts.js';
 import { modifica } from '../store.js';
-import { paceChart } from './dashboard.js';
+import { pacingBlock } from './dashboard.js';
 import { apri, chiudi } from './forms.js';
 
-export function patrimonio(root, { s }) {
+const GRUPPI_HAI = [
+  ['banca', 'Conti in banca', '#3BA0FF', '#1E5BD8'],
+  ['contanti', 'Contanti', '#39C6E0', '#1F8FB0'],
+  ['risparmio', 'Salvadanai', '#A35BFF', '#6B3FD0'],
+  ['tasse', 'Fondo tasse', '#5FD6C0', '#2E9C8A'],
+  ['investimento', 'Investimenti', '#E07BFF', '#B04BD0'],
+  ['beni', 'Beni', '#9EC9FF', '#5A8FD8'],
+];
+const DEBT = [['#FF9A5C', '#E0602A'], ['#FF7A3D', '#C94A1E'], ['#FFB38F', '#E07B4F'], ['#F2895F', '#B8502C']];
+
+export function patrimonio(root, { s, mobile }) {
   const oggi = today(), P = E.pacing(s, oggi), now = E.patrimonio(s, oggi);
   const inizioAnno = oggi.slice(0, 4) + '-01-01';
   const pa = E.patrimonio(s, E.primaData(s) > inizioAnno ? E.primaData(s) : inizioAnno);
   const varAnno = now.netto - pa.netto;
-  const voci = [
-    ['Soldi sui conti e contanti', now.liquidi, 'linear-gradient(90deg,#1E5BD8,#3BA0FF)'],
-    ['Investimenti', now.investimenti, 'linear-gradient(90deg,#6B3FD0,#A35BFF)'],
-    ['Beni (auto, oggetti di valore)', now.beni, 'linear-gradient(90deg,#1F8FB0,#39C6E0)'],
-    ['Debiti', -now.debiti, 'linear-gradient(90deg,#D9502A,#FF7A3D)'],
-    ['Tasse ancora da pagare', -now.tasse, 'linear-gradient(90deg,#D9304A,#FF6B7A)'],
-  ];
-  const maxV = Math.max(1, ...voci.map(v => Math.abs(v[1])));
+
+  // cosa hai, raggruppato
+  const hai = GRUPPI_HAI.map(([k, nome, c1, c2]) => {
+    const voci = k === 'beni' ? s.beni.map(b => ({ id: b.id, nome: b.nome, v: +b.valore || 0, bene: true })) : now.conti.filter(c => c.tipo === k).map(c => ({ nome: c.nome, v: Math.max(0, c.saldo) }));
+    return { k, nome, c1, c2, voci, tot: round2(voci.reduce((a, x) => a + x.v, 0)) };
+  }).filter(g => g.voci.length || g.k === 'beni');
+  const totHai = round2(hai.reduce((a, g) => a + g.tot, 0));
+  // cosa devi: ogni debito + tasse
+  const debiti = s.impegni.filter(E.isDebito).map((i, k) => ({ nome: i.nome, v: E.residuoAl(i, oggi), fine: E.fineDebito(i), c: DEBT[k % DEBT.length] })).filter(d => d.v > 0);
+  const devi = debiti.concat(now.tasse > 0 ? [{ nome: 'Tasse da pagare', v: now.tasse, c: ['#FF6B7A', '#D9304A'] }] : []);
+  const totDevi = round2(devi.reduce((a, x) => a + x.v, 0));
+  const scala = Math.max(totHai, totDevi, 1);
+  const seg = (v, c1, c2, label) => v > 0 ? `<div class="sb" style="width:${v / scala * 100}%;background:linear-gradient(180deg,${c1},${c2})" data-tip="${esc(label)}: ${eur(v)}">${v / scala > .1 ? `<span>${esc(label)}</span>` : ''}</div>` : '';
+  const perc = v => totHai ? Math.round(v / totHai * 100) + '%' : '';
 
   root.innerHTML = `
   <div class="hello"><div><h1>Patrimonio</h1><p>Tutto quello che hai, meno tutto quello che devi.</p></div></div>
   <div class="g">
-    <section class="card s4 c-saldo">
-      <div class="top"><span>PATRIMONIO NETTO</span><span>oggi</span></div>
-      <div class="big n">${big(now.netto)}</div>
-      <span class="sub" style="color:#C9D6F2">${varAnno >= 0 ? '+' : ''}${eur(varAnno)} da inizio anno</span>
+    <section class="card s12">
+      <div class="eq">
+        <div class="eqt hai"><span class="k">Cosa hai</span><span class="big n">${big(totHai, 0)}</span></div>
+        <span class="eqop">−</span>
+        <div class="eqt devi"><span class="k">Cosa devi</span><span class="big n">${big(totDevi, 0)}</span></div>
+        <span class="eqop">=</span>
+        <div class="eqt net"><span class="k">Patrimonio netto</span><span class="big n">${big(now.netto, 0)}</span><span class="sub">${varAnno >= 0 ? '+' : ''}${eur0(varAnno)} da inizio anno</span></div>
+      </div>
+      <div class="stk"><span class="stl">Hai</span><div class="sbar">${hai.map(g => seg(g.tot, g.c1, g.c2, g.nome)).join('')}</div></div>
+      <div class="stk"><span class="stl">Devi</span><div class="sbar">${devi.map(d => seg(d.v, d.c[0], d.c[1], d.nome)).join('') || '<span class="muted" style="font-size:.85rem;padding-left:4px">niente</span>'}</div></div>
+      <p class="kid">Le due barre usano la stessa scala: se quella sopra è più lunga, hai più di quanto devi.</p>
     </section>
-    <section class="card s8">
-      <div class="ch"><span class="ic">${icon.bars}</span><h3>Di cosa è fatto</h3></div>
-      <div class="cats">${voci.map(([n, v, g]) => `<div class="cat"><span>${n}</span><span class="tr"><span class="f" style="width:${Math.abs(v) / maxV * 100}%;background:${g}"></span><span class="rest"></span></span><span class="v n ${v < 0 ? 'neg' : ''}">${eur(v)}</span></div>`).join('')}</div>
+
+    <section class="card s6">
+      <div class="ch"><span class="ic">${icon.plus}</span><h3>Cosa hai</h3><button class="btn sm" style="margin-left:auto" data-a="bene">＋ Bene</button></div>
+      <div class="grp">${hai.map(g => `<div class="gh"><span class="dot" style="background:${g.c1}"></span><b>${g.nome}</b><span class="muted">${perc(g.tot)}</span><span class="n gv">${eur(g.tot)}</span></div>
+        ${g.voci.map(v => `<div class="gi" ${v.bene ? `data-bene="${v.id}" style="cursor:pointer"` : ''}><span>${esc(v.nome)}</span><span class="n">${eur(v.v)}</span></div>`).join('') || (g.k === 'beni' ? '<div class="gi muted"><span>Auto, scooter, PC… quello che potresti rivendere. Metti il valore di oggi.</span></div>' : '')}`).join('')}</div>
+    </section>
+    <section class="card s6">
+      <div class="ch"><span class="ic">${icon.minus}</span><h3>Cosa devi</h3><span class="go" data-go="impegni" style="cursor:pointer">↗</span></div>
+      <div class="grp">${devi.map(d => `<div class="gh"><span class="dot" style="background:${d.c[0]}"></span><b>${esc(d.nome)}</b><span class="muted">${d.fine ? 'finisce ' + MESI3[parse(d.fine).getMonth()] + ' ' + parse(d.fine).getFullYear() : ''}</span><span class="n gv neg">${eur(d.v)}</span></div>`).join('') || '<p class="empty">Nessun debito. Bello.</p>'}</div>
+      ${totDevi ? `<p class="kid">I debiti si mangiano il <b>${totHai ? Math.round(totDevi / totHai * 100) : 100}%</b> di quello che hai.</p>` : ''}
     </section>
 
     <section class="card s12">
       <div class="ch"><span class="ic">${icon.line}</span><h3>Pacing: dove arrivi a questo ritmo</h3></div>
-      <div class="lg"><span><i style="background:var(--mag)"></i>Patrimonio netto</span><span><i style="background:var(--cyan)"></i>Previsione</span>${P.target ? '<span><i style="background:#FF7A3D"></i>Obiettivo fine anno</span>' : ''}</div>
-      <svg id="pace2" aria-label="Patrimonio e previsione"></svg>
-      <div class="g" style="gap:12px">${P.uniti.map(t => `<div class="s${12 / P.uniti.length}" style="background:rgba(255,255,255,.03);border:1px solid var(--line);border-radius:16px;padding:14px 16px;display:grid;gap:6px">
-        <span class="k">${esc(t.etichetta)}</span><span class="mid n">${big(t.stima, 0)}</span>
-        <span class="sub">${t.mesi < .05 ? 'periodo finito' : `tra ${t.mesi.toLocaleString('it-IT', { maximumFractionDigits: 1 })} mesi · ${t.stima - P.ora >= 0 ? '+' : ''}${eur0(t.stima - P.ora)}`}</span>
-        ${P.target && t.modi.includes('anno') ? `<span class="st ${t.stima >= P.target ? 'ok' : 'warn'}">${t.stima >= P.target ? `Ci arrivi (obiettivo ${eur0(P.target)})` : `Mancano ${eur0(P.target - t.stima)} all'obiettivo`}</span>` : ''}
-      </div>`).join('')}</div>
-      <p class="kid">Come lo calcolo: prendo quanto è cambiato il patrimonio negli ultimi ${P.N} mesi (in media <b class="n">${P.media >= 0 ? '+' : ''}${eur(P.media)}</b> al mese) e lo porto avanti. ${P.target ? (() => { const t = P.traguardi[2], mesi = Math.max(.5, t.mesi), serve = (P.target - P.ora) / mesi; return serve > 0 ? `Per arrivare a ${eur0(P.target)} a fine anno ti servono <b class="n">${eur0(serve)}</b> in più al mese.` : 'Hai già superato l\'obiettivo di fine anno.'; })() : 'Puoi fissare un obiettivo di fine anno nelle Impostazioni.'}</p>
-    </section>
-
-    <section class="card s6" style="grid-column:span 6">
-      <div class="ch"><span class="ic">${icon.cash}</span><h3>Conti</h3><span class="go" data-go="impostazioni" style="cursor:pointer">↗</span></div>
-      <div class="list">${now.conti.map(c => `<div class="item"><div><h4>${esc(c.nome)}</h4><span class="meta">${esc({ banca: 'Conto', contanti: 'Portafoglio', risparmio: 'Salvadanaio', tasse: 'Salvadanaio tasse', investimento: 'Investimenti' }[c.tipo])}</span></div><span class="mid n" style="font-size:1.15rem">${eur(c.saldo)}</span></div>`).join('')}</div>
-    </section>
-    <section class="card s6" style="grid-column:span 6">
-      <div class="ch"><span class="ic">${icon.flag}</span><h3>Beni</h3><button class="btn sm" style="margin-left:auto" data-a="bene">＋ Aggiungi</button></div>
-      <p class="kid">Cose che valgono soldi e potresti rivendere: auto, scooter, orologio, PC. Metti il valore di oggi, non quello pagato.</p>
-      <div class="list">${s.beni.map(b => `<div class="item" data-bene="${b.id}" style="cursor:pointer"><div><h4>${esc(b.nome)}</h4></div><span class="mid n" style="font-size:1.15rem">${eur(b.valore)}</span></div>`).join('') || '<p class="empty">Nessun bene inserito.</p>'}</div>
+      ${pacingBlock(P, mobile)}
     </section>
   </div>`;
-  paceChart($('#pace2', root), P);
   root.querySelector('[data-a="bene"]').onclick = () => formBene();
   root.querySelectorAll('[data-bene]').forEach(el => el.onclick = () => formBene(s.beni.find(b => b.id === el.dataset.bene)));
   root.querySelectorAll('[data-go]').forEach(b => b.onclick = () => location.hash = b.dataset.go);

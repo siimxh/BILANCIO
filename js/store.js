@@ -5,7 +5,7 @@ import { SUPABASE_URL, SUPABASE_ANON_KEY } from './config.js';
 import { normalize, vuoto } from './model.js';
 import { demo } from './demo.js';
 
-const DEMO_KEY = 'bilancio-demo-v1';
+const DEMO_KEY = 'ledger-demo-v2';
 export const online = !!(SUPABASE_URL && SUPABASE_ANON_KEY);
 let sb = null, user = null, saveT = null, listeners = [];
 export let state = null;

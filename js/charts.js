@@ -130,19 +130,64 @@ export function flow(ins, outs) {
   return `<svg viewBox="0 0 ${W} ${H}">${defs}</defs>${s}</svg>`;
 }
 
-// colonne mese per mese (entrate vs spese), asse unico
-export function columns(rows, { W = 820, H = 260 } = {}) {
-  const l = 56, r = 10, t = 14, b = 30, iw = W - l - r, ih = H - t - b, n = rows.length;
+// colonne mese per mese (entrate vs spese), asse unico, cifre sopra le barre e saldo sotto ogni mese
+export function columns(rows, { W = 820, H = 300, etichette = true } = {}) {
+  const l = 46, r = 10, t = 22, b = 58, iw = W - l - r, ih = H - t - b, n = rows.length, id = uid();
   const max = niceMax(Math.max(1, ...rows.flatMap(x => [x.a, x.b])));
-  const bw = iw / n, cw = Math.min(26, bw * .3), Y = v => t + ih - ih * Math.max(0, v) / max;
+  const bw = iw / Math.max(n, 1), cw = Math.min(30, bw * .34), Y = v => t + ih - ih * Math.max(0, v) / max;
   let s = '';
-  for (let k = 0; k <= 4; k++) { const v = max * k / 4; s += `<line x1="${l}" x2="${W - r}" y1="${Y(v)}" y2="${Y(v)}" stroke="rgba(255,255,255,.05)"/><text x="${l - 10}" y="${Y(v) + 4}" text-anchor="end" font-size="12" fill="#6F6C80">${Math.round(v).toLocaleString('it-IT')}</text>`; }
+  for (let k = 0; k <= 4; k++) { const v = max * k / 4; s += `<line x1="${l}" x2="${W - r}" y1="${Y(v)}" y2="${Y(v)}" stroke="rgba(255,255,255,${k ? .05 : .15})"/><text x="${l - 8}" y="${Y(v) + 4}" text-anchor="end" font-size="11" fill="#6F6C80">${corto(v)}</text>`; }
   rows.forEach((x, i) => {
-    const cx = l + bw * i + bw / 2;
-    s += `<g data-tip="${esc(x.label)}\nEntrate: ${eur(x.a)}\nSpese: ${eur(x.b)}\nDifferenza: ${eur(x.a - x.b)}"><rect x="${l + bw * i}" y="${t}" width="${bw}" height="${ih}" fill="transparent"/>`;
-    s += `<rect x="${cx - cw - 2}" y="${Y(x.a)}" width="${cw}" height="${Math.max(0, t + ih - Y(x.a))}" rx="6" fill="url(#cA)"/>`;
-    s += `<rect x="${cx + 2}" y="${Y(x.b)}" width="${cw}" height="${Math.max(0, t + ih - Y(x.b))}" rx="6" fill="url(#cB)"/></g>`;
-    s += `<text x="${cx}" y="${H - 8}" text-anchor="middle" font-size="12" fill="#6F6C80">${esc(x.short)}</text>`;
+    const cx = l + bw * i + bw / 2, sal = x.a - x.b;
+    s += `<g class="colg" data-tip="${esc(x.label)}\nEntrate: ${eur(x.a)}\nSpese: ${eur(x.b)}\nTi è rimasto: ${eur(sal)}"><rect class="band" x="${l + bw * i + 2}" y="${t - 18}" width="${bw - 4}" height="${ih + 18 + b - 6}" rx="12" fill="transparent"/>`;
+    s += `<rect x="${cx - cw - 2}" y="${Y(x.a)}" width="${cw}" height="${Math.max(0, t + ih - Y(x.a))}" rx="7" fill="url(#cA${id})"/>`;
+    s += `<rect x="${cx + 2}" y="${Y(x.b)}" width="${cw}" height="${Math.max(0, t + ih - Y(x.b))}" rx="7" fill="url(#cB${id})"/>`;
+    if (etichette) {
+      if (x.a) s += `<text x="${cx - cw / 2 - 2}" y="${Y(x.a) - 6}" text-anchor="middle" font-size="11" font-weight="700" fill="#8CC4FF">${corto(x.a)}</text>`;
+      if (x.b) s += `<text x="${cx + cw / 2 + 2}" y="${Y(x.b) - 6}" text-anchor="middle" font-size="11" font-weight="700" fill="#E3A6F5">${corto(x.b)}</text>`;
+    }
+    s += `<text x="${cx}" y="${t + ih + 18}" text-anchor="middle" font-size="12" font-weight="600" fill="#A9A6B8">${esc(x.short)}</text>`;
+    const pw = Math.min(bw - 6, 58);
+    s += `<rect x="${cx - pw / 2}" y="${t + ih + 28}" width="${pw}" height="20" rx="10" fill="${sal >= 0 ? 'rgba(74,222,155,.14)' : 'rgba(255,107,122,.14)'}"/><text x="${cx}" y="${t + ih + 42}" text-anchor="middle" font-size="11" font-weight="800" fill="${sal >= 0 ? '#4ADE9B' : '#FF6B7A'}">${sal >= 0 ? '+' : ''}${corto(sal)}</text></g>`;
   });
-  return `<svg viewBox="0 0 ${W} ${H}"><defs><linearGradient id="cA" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3BA0FF"/><stop offset="1" stop-color="#1E5BD8"/></linearGradient><linearGradient id="cB" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#C04BE0"/><stop offset="1" stop-color="#6B2FBF"/></linearGradient></defs>${s}</svg>`;
+  return `<svg viewBox="0 0 ${W} ${H}" class="cols"><defs><linearGradient id="cA${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3BA0FF"/><stop offset="1" stop-color="#1E5BD8"/></linearGradient><linearGradient id="cB${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#C04BE0"/><stop offset="1" stop-color="#6B2FBF"/></linearGradient></defs>${s}</svg>`;
+}
+
+// numeri corti per le etichette sopra le barre: 850, 1,2k, −3,1k
+export const corto = v => { const a = Math.abs(v), s = v < 0 ? '−' : ''; return a >= 1000 ? s + (a / 1000).toLocaleString('it-IT', { maximumFractionDigits: 1 }) + 'k' : s + Math.round(a); };
+
+// pacing a barre: mesi passati pieni, mese di oggi illuminato, mesi futuri a righe (previsione), linea dell'obiettivo
+// mesi: [{ label, v, tipo: 'passato'|'oggi'|'futuro', tip }]
+export function barrePacing(mesi, { target = 0, W = 820, H = 280 } = {}) {
+  const l = 14, r = 14, t = 26, b = 34, iw = W - l - r, ih = H - t - b, n = mesi.length, id = uid();
+  const vals = mesi.map(m => m.v).concat(target ? [target] : []);
+  const hi = Math.max(0, ...vals), lo = Math.min(0, ...vals), span = (hi - lo) || 1;
+  const ihp = ih - (lo < 0 ? 22 : 0); // spazio per le cifre sotto le barre negative
+  const Y = v => t + ihp * (hi - v) / span, y0 = Y(0);
+  const bw = iw / n, w = Math.min(46, bw * .62);
+  let s = `<defs>
+    <linearGradient id="pp${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#C04BE0"/><stop offset="1" stop-color="#6B3FD0"/></linearGradient>
+    <linearGradient id="pn${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FF7A3D"/><stop offset="1" stop-color="#D9304A"/></linearGradient>
+    <linearGradient id="po${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#F0A8FF"/><stop offset="1" stop-color="#C04BE0"/></linearGradient>
+    <pattern id="pf${id}" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="7" height="7" fill="rgba(59,160,255,.08)"/><line x1="0" y1="0" x2="0" y2="7" stroke="#3BA0FF" stroke-width="2" stroke-opacity=".55"/></pattern>
+    <filter id="pg${id}" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="6"/></filter></defs>`;
+  s += `<line x1="${l}" x2="${W - r}" y1="${y0}" y2="${y0}" stroke="rgba(255,255,255,.18)"/>`;
+  mesi.forEach((m, i) => {
+    const cx = l + bw * i + bw / 2, x = cx - w / 2, yv = Y(m.v), top = Math.min(yv, y0), h = Math.max(2, Math.abs(y0 - yv));
+    const fut = m.tipo === 'futuro', now = m.tipo === 'oggi';
+    const fill = fut ? `url(#pf${id})` : m.v < 0 ? `url(#pn${id})` : now ? `url(#po${id})` : `url(#pp${id})`;
+    s += `<g data-tip="${esc(m.tip)}"><rect x="${l + bw * i}" y="${t - 20}" width="${bw}" height="${ih + 40}" fill="transparent"/>`;
+    if (now) s += `<rect x="${x}" y="${top}" width="${w}" height="${h}" rx="8" fill="#E07BFF" opacity=".55" filter="url(#pg${id})"/>`;
+    s += `<rect x="${x}" y="${top}" width="${w}" height="${h}" rx="8" fill="${fill}" ${fut ? 'stroke="#3BA0FF" stroke-width="1.5" stroke-dasharray="4 3"' : ''}/>`;
+    const ly = m.v >= 0 ? top - 7 : top + h + 15;
+    s += `<text x="${cx}" y="${ly}" text-anchor="middle" font-size="${now ? 14 : 12}" font-weight="${now ? 800 : 600}" fill="${fut ? '#8CC4FF' : now ? '#fff' : '#A9A6B8'}">${corto(m.v)}</text></g>`;
+    s += `<text x="${cx}" y="${H - 14}" text-anchor="middle" font-size="12" font-weight="${now ? 800 : 500}" fill="${now ? '#ECEAF2' : '#6F6C80'}">${esc(m.label)}</text>`;
+    if (now) s += `<text x="${cx}" y="${H - 1}" text-anchor="middle" font-size="10" font-weight="700" fill="#E07BFF">OGGI</text>`;
+  });
+  if (target) {
+    const ty = Y(target);
+    s += `<line x1="${l}" x2="${W - r}" y1="${ty}" y2="${ty}" stroke="#FF7A3D" stroke-width="2" stroke-dasharray="7 6"/>`;
+    s += `<rect x="${l}" y="${ty - 22}" width="128" height="18" rx="9" fill="rgba(255,122,61,.22)"/><text x="${l + 64}" y="${ty - 9}" text-anchor="middle" font-size="11" font-weight="700" fill="#FFB38F">obiettivo ${eur0(target)}</text>`;
+  }
+  return `<svg viewBox="0 0 ${W} ${H}">${s}</svg>`;
 }

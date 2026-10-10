@@ -1,6 +1,6 @@
 // Lettura degli estratti conto: CSV di Revolut (inglese o italiano) o CSV semplice (data;descrizione;importo;categoria).
 import { uid, round2 } from './util.js';
-import { indovinaCategoria, principale } from './engine.js';
+import { riconosci, principale } from './engine.js';
 
 function splitCSV(text) {
   const sep = (text.split('\n')[0].match(/;/g) || []).length > (text.split('\n')[0].match(/,/g) || []).length ? ';' : ',';
@@ -18,7 +18,8 @@ function splitCSV(text) {
 }
 const num = v => { v = String(v ?? '').trim().replace(/\s|€/g, ''); if (/,\d{1,2}$/.test(v)) v = v.replace(/\./g, '').replace(',', '.'); return parseFloat(v); };
 const toIso = v => { v = String(v || '').trim(); let m = v.match(/^(\d{4})-(\d{2})-(\d{2})/); if (m) return `${m[1]}-${m[2]}-${m[3]}`; m = v.match(/^(\d{1,2})[/.-](\d{1,2})[/.-](\d{2,4})/); if (m) return `${m[3].length === 2 ? '20' + m[3] : m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`; return ''; };
-export const chiave = m => `${m.data}|${m.importo.toFixed(2)}|${(m.descr || '').toLowerCase().replace(/\s+/g, ' ').trim()}|${m.tipo}`;
+// stesso giorno, stesso importo, stesso nome della banca = doppione (anche se poi l'hai rinominato)
+export const chiave = m => `${m.data}|${(+m.importo).toFixed(2)}|${(m.descrBanca || m.descr || '').toLowerCase().replace(/\s+/g, ' ').trim()}`;
 
 export function leggi(text, s, contoId) {
   const rows = splitCSV(text.replace(/^﻿/, ''));
@@ -40,14 +41,16 @@ export function leggi(text, s, contoId) {
       const a = num(r[iAmt]), fee = iFee >= 0 ? Math.abs(num(r[iFee]) || 0) : 0, data = toIso(r[iDate]) || toIso(r[col('started date', 'data di inizio')]);
       if (!data || isNaN(a) || (!a && !fee)) continue;
       const type = (r[iType] || '').toUpperCase(), descr = (r[iDesc] || '').trim();
-      const base = { id: uid(), data, descr, conto, daControllare: true, fonte: 'Revolut CSV' };
+      const base = { id: uid(), data, descr, descrBanca: descr, conto, fonte: 'Revolut CSV' };
+      const ric = riconosci(s, descr);
+      if (ric?.nome) base.descr = ric.nome;
       if (/ATM|PRELIEVO/.test(type) && a < 0) { out.push({ ...base, tipo: 'trasferimento', importo: round2(-a), contoDest: contanti || conto }); }
       else if (/EXCHANGE|CAMBIO/.test(type)) continue;
       else if (/pocket|salvadanaio|savings|risparmi/i.test(descr) && salvadanaio) out.push({ ...base, tipo: 'trasferimento', importo: round2(Math.abs(a)), conto: a < 0 ? conto : salvadanaio, contoDest: a < 0 ? salvadanaio : conto });
-      else if (/REFUND|RIMBORSO/.test(type) && a > 0) out.push({ ...base, tipo: 'rimborso', importo: round2(a), categoria: indovinaCategoria(s, descr) || 'Shopping' });
-      else if (a > 0) out.push({ ...base, tipo: 'entrata', importo: round2(a), lavoro: true });
-      else if (a < 0) out.push({ ...base, tipo: 'spesa', importo: round2(-a), categoria: indovinaCategoria(s, descr) || '' });
-      if (fee > 0) out.push({ id: uid(), data, descr: 'Commissione ' + descr, conto, tipo: 'spesa', importo: round2(fee), categoria: 'Casa e bollette', daControllare: true, fonte: 'Revolut CSV' });
+      else if (/REFUND|RIMBORSO/.test(type) && a > 0) out.push({ ...base, tipo: 'rimborso', importo: round2(a), categoria: ric?.categoria || 'Shopping', daControllare: !ric });
+      else if (a > 0) out.push({ ...base, tipo: 'entrata', importo: round2(a), lavoro: ric?.categoria !== 'Entrata non da lavoro', daControllare: !ric });
+      else if (a < 0) out.push({ ...base, tipo: 'spesa', importo: round2(-a), categoria: ric?.categoria || '', daControllare: !ric });
+      if (fee > 0) out.push({ id: uid(), data, descr: 'Commissione ' + descr, descrBanca: descr, conto, tipo: 'spesa', importo: round2(fee), categoria: 'Casa e bollette', fonte: 'Revolut CSV' });
     }
     return { movimenti: out, formato: 'Revolut' };
   }
@@ -58,9 +61,11 @@ export function leggi(text, s, contoId) {
     const data = toIso(r[jD]), a = num(r[jI]), descr = jS >= 0 ? (r[jS] || '').trim() : '';
     if (!data || !a || isNaN(a)) continue;
     const catFile = jC >= 0 ? (r[jC] || '').trim() : '';
-    const cat = s.categorie.some(c => c.nome === catFile) ? catFile : indovinaCategoria(s, descr);
-    out.push(a > 0 ? { id: uid(), data, descr, conto, tipo: 'entrata', importo: round2(a), lavoro: true, daControllare: true, fonte: 'CSV' }
-      : { id: uid(), data, descr, conto, tipo: 'spesa', importo: round2(-a), categoria: cat || '', daControllare: true, fonte: 'CSV' });
+    const ric = riconosci(s, descr);
+    const cat = s.categorie.some(c => c.nome === catFile) ? catFile : ric?.categoria;
+    const nome = ric?.nome || descr;
+    out.push(a > 0 ? { id: uid(), data, descr: nome, descrBanca: descr, conto, tipo: 'entrata', importo: round2(a), lavoro: ric?.categoria !== 'Entrata non da lavoro', daControllare: !ric, fonte: 'CSV' }
+      : { id: uid(), data, descr: nome, descrBanca: descr, conto, tipo: 'spesa', importo: round2(-a), categoria: cat || '', daControllare: !cat, fonte: 'CSV' });
   }
   return { movimenti: out, formato: 'CSV semplice' };
 }

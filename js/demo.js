@@ -44,6 +44,16 @@ export function demo() {
     if (k === 6) add(day(ms, 14), { tipo: 'spesa', categoria: 'Uscite e bar', importo: 180, conto: 'principale', descr: 'Weekend al mare' });
   }
 
+  // movimenti arrivati dalla banca che il tool non sa riconoscere: finiscono in "Da sistemare"
+  const strani = [['SUMUP *STADIO ADRIATICO 4471', 12, 1], ['SQ *CHIOSCO LUNGOMARE', 8.5, 2], ['PAYPAL *GIGSTICKET 2291', 25, 3], ['POS 88123 ARCI CIRCOLO', 6, 5], ['SATISPAY*RISTORO PIAZZA', 14.2, 6], ['BONIFICO DA M. ROSSI', 40, 4]];
+  const oggiD = parse(oggi);
+  for (const [nome, imp, g] of strani) {
+    const d = new Date(oggiD); d.setDate(d.getDate() - g);
+    const entrata = nome.startsWith('BONIFICO');
+    add(iso(d), entrata ? { tipo: 'entrata', lavoro: true, importo: imp, conto: 'principale', descr: nome, descrBanca: nome, daControllare: true, fonte: 'Revolut' }
+      : { tipo: 'spesa', categoria: '', importo: imp, conto: 'principale', descr: nome, descrBanca: nome, daControllare: true, fonte: 'Revolut' });
+  }
+
   return normalize({
     profilo: { nome: 'Demo' },
     conti: [

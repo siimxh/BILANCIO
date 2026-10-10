@@ -67,9 +67,9 @@ export function impostazioni(root, { s }) {
         <div class="btns" style="flex-wrap:nowrap"><select data-cg="${k}" style="width:auto;padding:6px 8px;font-size:.82rem"><option value="necessita" ${c.gruppo === 'necessita' ? 'selected' : ''}>Necessità</option><option value="desiderio" ${c.gruppo === 'desiderio' ? 'selected' : ''}>Desiderio</option></select>
         <label class="chk" style="font-size:.8rem"><input type="checkbox" data-cf="${k}" ${c.fissa ? 'checked' : ''}>Fissa</label></div></div>`).join('')}</div>
       <details><summary class="kid" style="cursor:pointer">Regole automatiche (${s.regole.length})</summary>
-        <p class="kid">Se la descrizione contiene questa parola, metto questa categoria. Valgono per i nuovi movimenti e gli import.</p>
-        <div class="list">${s.regole.map(([kw, c], k) => `<div class="item" style="padding:8px 12px"><span>"${esc(kw)}" → ${esc(c)}</span><button class="btn sm ghost" data-rdel="${k}">✕</button></div>`).join('')}</div>
-        <form class="fr" id="rf" style="margin-top:10px"><input name="kw" placeholder="parola, es. conad"><select name="cat">${s.categorie.map(c => `<option>${esc(c.nome)}</option>`).join('')}</select><button class="btn sm" type="submit">Aggiungi</button></form>
+        <p class="kid">Se il nome che arriva dalla banca contiene questa parola, uso questo nome e questa categoria. Si creano da sole quando sistemi un movimento con "Ricordatelo". Benzinai, supermercati, fast food e negozi famosi li riconosco già da solo.</p>
+        <div class="list">${s.regole.map(([kw, c, nome], k) => `<div class="item" style="padding:8px 12px"><span>"${esc(kw)}" → ${nome ? `<b>${esc(nome)}</b> · ` : ''}${esc(c)}</span><button class="btn sm ghost" data-rdel="${k}">✕</button></div>`).join('')}</div>
+        <form class="fr" id="rf" style="margin-top:10px"><input name="kw" placeholder="parola, es. conad"><select name="cat">${s.categorie.map(c => `<option>${esc(c.nome)}</option>`).join('')}<option>Entrata da lavoro</option><option>Entrata non da lavoro</option></select><button class="btn sm" type="submit">Aggiungi</button></form>
       </details>
     </section>
 
