@@ -1,4 +1,4 @@
-# Bilancio
+# Ledger
 
 Il tuo bilancio personale: entrate, spese, contanti, debiti, obiettivi e patrimonio, con i conti fatti "da commercialista".
 

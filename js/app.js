@@ -11,7 +11,7 @@ import { resoconti } from './views/resoconti.js';
 import { impostazioni } from './views/impostazioni.js';
 
 // nome del tool in alto a sinistra (si cambia solo qui)
-const NOME = 'Bilancio';
+const NOME = 'Ledger';
 
 const SEZIONI = [
   ['dashboard', 'Dashboard', dashboard],
