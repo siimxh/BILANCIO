@@ -10,6 +10,9 @@ import { patrimonio } from './views/patrimonio.js';
 import { resoconti } from './views/resoconti.js';
 import { impostazioni } from './views/impostazioni.js';
 
+// nome del tool in alto a sinistra (si cambia solo qui)
+const NOME = 'Bilancio';
+
 const SEZIONI = [
   ['dashboard', 'Dashboard', dashboard],
   ['movimenti', 'Movimenti', movimenti],
@@ -33,7 +36,7 @@ export const vai = k => { location.hash = k; };
 function nav() {
   const cur = sezione(), nome = store.state.profilo.nome || store.email() || 'Tu';
   return `<nav class="nav">
-    <div class="logo"><i></i>Bilancio</div>
+    <div class="logo"><i></i>${NOME}</div>
     <div class="pills">${SEZIONI.map(([k, t]) => `<button data-go="${k}" class="${k === cur ? 'on' : ''}">${t}</button>`).join('')}</div>
     <div class="right">
       <div class="per"><button class="chip" id="perbtn">${esc(etichetta(per))} ▾</button><div class="perpop" id="perpop" hidden></div></div>
@@ -75,7 +78,7 @@ document.addEventListener('click', e => { const pop = $('#perpop'); if (pop && !
 
 function login() {
   $('#app').innerHTML = `<div class="login"><section class="card">
-    <div class="logo"><i></i>Bilancio</div>
+    <div class="logo"><i></i>${NOME}</div>
     <h1 style="font-size:1.6rem">Entra nel tuo bilancio</h1>
     <p class="kid">Ognuno vede solo i suoi soldi. Se è la prima volta, scrivi email e una password e premi <b>Crea account</b>.</p>
     <form class="form" id="lf">
