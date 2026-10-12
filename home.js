@@ -126,6 +126,7 @@ function home(user, profilo, doc) {
     <div class="sheet" id="sheet" hidden>
       ${user ? `<p class="sub">Account: <b>${esc(user.email)}</b></p>` : ''}
       <button class="btn" id="mods">Scegli i moduli</button>
+      ${online && miei.some(m => m.id === 'ledger') ? '<a class="btn" href="/banca/" style="color:inherit;text-decoration:none">Banca (Revolut)</a>' : ''}
       ${online ? '<button class="btn ghost" id="out">Esci</button>' : ''}
     </div>`);
   $('#menu').onclick = () => { const s = $('#sheet'); s.hidden = !s.hidden; };
