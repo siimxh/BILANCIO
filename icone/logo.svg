@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512"><defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#22202C"/><stop offset=".55" stop-color="#0E0D14"/><stop offset="1" stop-color="#17151F"/></linearGradient>
+<linearGradient id="gr" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#3BA0FF"/><stop offset="1" stop-color="#C04BE0"/></linearGradient>
+<linearGradient id="mt" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#E4E4EA"/><stop offset=".55" stop-color="#8C8C96"/><stop offset="1" stop-color="#C9C9D1"/></linearGradient>
+<linearGradient id="card" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#3A3A42"/><stop offset=".55" stop-color="#0B0B0E"/><stop offset="1" stop-color="#25252B"/></linearGradient></defs>
+<rect width="512" height="512" fill="url(#bg)"/><rect x="116" y="292" width="280" height="64" rx="18" fill="url(#card)" stroke="#ffffff" stroke-opacity=".22" stroke-width="4"/>
+<rect x="136" y="224" width="240" height="56" rx="16" fill="url(#mt)" opacity=".85"/>
+<rect x="156" y="156" width="200" height="56" rx="16" fill="url(#gr)"/></svg>

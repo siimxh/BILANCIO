@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Banca</title>
+  <meta name="theme-color" content="#0E0D14">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="apple-touch-icon" href="/icone/apple-touch-icon.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Archivo:wdth,wght@62..125,500..900&display=swap">
+  <link rel="stylesheet" href="/home.css">
+</head>
+<body>
+  <main id="app" class="wrap"><p class="muted center pad">Un attimo…</p></main>
+  <script type="module">
+    // Collegamento Revolut: stato, collega, sincronizza ora, e ritorno dalla banca (?code=…&state=…)
+    import { client, utente, online } from '/shared/supa.js';
+    import { SUPABASE_URL } from '/shared/config.js';
+    const app = document.getElementById('app');
+    const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const data = s => s ? new Date(s).toLocaleString('it-IT', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '–';
+    const box = html => { app.innerHTML = `<section class="box"><a href="/" class="link" style="align-self:flex-start">‹ Home</a>${html}</section>`; };
+
+    async function chiama(azione, extra = {}) {
+      const c = await client(), { data: { session } } = await c.auth.getSession();
+      const r = await fetch(SUPABASE_URL + '/functions/v1/banca', { method: 'POST', headers: { 'content-type': 'application/json', authorization: 'Bearer ' + session.access_token }, body: JSON.stringify({ azione, ...extra }) });
+      const j = await r.json().catch(() => ({ errore: 'risposta non valida' }));
+      if (!r.ok) throw Object.assign(new Error(j.errore || 'errore'), { status: r.status });
+      return j;
+    }
+
+    async function pannello(avviso = '') {
+      const { collegamenti } = await chiama('stato');
+      const giorni = s => Math.ceil((new Date(s) - Date.now()) / 864e5);
+      box(`<h1>Banca</h1>
+        ${avviso ? `<p class="msg ok">${esc(avviso)}</p>` : ''}
+        ${collegamenti.length ? collegamenti.map(c => `<div class="mod" style="flex-direction:column;align-items:flex-start;gap:4px">
+            <b>${esc(c.banca)} · ${c.conti.length} ${c.conti.length === 1 ? 'conto' : 'conti'}</b>
+            ${c.conti.map(x => `<small class="sub">${esc(x.nome || x.iban || 'Conto')}${x.saldo ? ` · saldo ${esc(x.saldo.amount)} ${esc(x.saldo.currency)}` : ''}</small>`).join('')}
+            <small class="sub">Ultimo aggiornamento: ${data(c.ultimo_sync)}</small>
+            <small class="sub">${c.valido_fino ? (giorni(c.valido_fino) > 0 ? `Consenso valido ancora ${giorni(c.valido_fino)} giorni` : '<b style="color:var(--neg)">Consenso scaduto: ricollega</b>') : ''}</small>
+          </div>`).join('') : '<p class="sub">Nessun conto collegato. I movimenti arriveranno da soli 4 volte al giorno.</p>'}
+        <button class="btn pri" id="col">${collegamenti.length ? 'Ricollega Revolut' : 'Collega Revolut'}</button>
+        ${collegamenti.length ? '<button class="btn" id="sync">Aggiorna adesso</button>' : ''}
+        <p class="msg" id="msg"></p>`);
+      const msg = document.getElementById('msg');
+      document.getElementById('col').onclick = async () => { msg.textContent = 'Ti porto su Revolut…'; try { location.href = (await chiama('collega')).url; } catch (e) { msg.textContent = e.message; msg.className = 'msg err'; } };
+      document.getElementById('sync')?.addEventListener('click', async () => { msg.textContent = 'Scarico i movimenti…'; try { const r = await chiama('sincronizza'); pannello(r.nuovi ? `${r.nuovi} movimenti nuovi.` : 'Nessun movimento nuovo.'); } catch (e) { msg.textContent = e.message; msg.className = 'msg err'; } });
+    }
+
+    (async () => {
+      if (!online) return box('<h1>Banca</h1><p class="sub">Disponibile solo con Supabase configurato.</p>');
+      if (!await utente()) return location.replace('/');
+      const q = new URLSearchParams(location.search);
+      try {
+        if (q.get('error')) { history.replaceState(null, '', '/banca/'); return pannello(); }
+        if (q.get('code')) {
+          box('<h1>Collego Revolut…</h1><p class="sub">Scarico conti e movimenti degli ultimi 90 giorni.</p>');
+          const r = await chiama('ritorno', { code: q.get('code'), state: q.get('state') });
+          history.replaceState(null, '', '/banca/');
+          return pannello(`Revolut collegato: ${r.conti} ${r.conti === 1 ? 'conto' : 'conti'}, ${r.nuovi} movimenti.`);
+        }
+        await pannello();
+      } catch (e) {
+        box(`<h1>Banca</h1><p class="msg err">${esc(e.status === 403 ? 'Il collegamento banca non è attivo per questo account.' : e.message)}</p>`);
+      }
+    })();
+  </script>
+</body>
+</html>
