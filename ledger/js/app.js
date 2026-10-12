@@ -61,7 +61,7 @@ const TAB = {
 function mtop() {
   const nome = store.state.profilo.nome || store.email() || 'Tu';
   return `${forzato && !mq.matches ? '<div class="notch"><i></i></div>' : ''}<header class="mtop">
-    <div class="logo"><i></i>${NOME}</div>
+    <a class="logo" href="/" title="Torna alla Home"><i></i>${NOME}</a>
     <div class="right"><div class="per"><button class="chip" id="perbtn">${esc(etichetta(per))} ▾</button><div class="perpop" id="perpop" hidden></div></div>
     <span class="avatar" style="width:34px;height:34px" title="${esc(nome)}">${esc(nome.charAt(0).toUpperCase())}</span></div>
   </header>`;
@@ -94,7 +94,7 @@ export const vai = k => { location.hash = k; };
 function nav() {
   const cur = sezione(), nome = store.state.profilo.nome || store.email() || 'Tu';
   return `<nav class="nav">
-    <div class="logo"><i></i>${NOME}</div>
+    <a class="logo" href="/" title="Torna alla Home"><i></i>${NOME}</a>
     <div class="pills">${SEZIONI.map(([k, t]) => `<button data-go="${k}" class="${k === cur ? 'on' : ''}">${t}</button>`).join('')}</div>
     <div class="right">
       <div class="per"><button class="chip" id="perbtn">${esc(etichetta(per))} ▾</button><div class="perpop" id="perpop" hidden></div></div>
@@ -138,32 +138,6 @@ export function render() {
 }
 document.addEventListener('click', e => { const pop = $('#perpop'); if (pop && !pop.hidden && !e.target.closest('.per')) pop.hidden = true; });
 
-function login() {
-  $('#app').innerHTML = `<div class="login"><section class="card">
-    <div class="logo"><i></i>${NOME}</div>
-    <h1 style="font-size:1.6rem">Entra nel tuo bilancio</h1>
-    <p class="kid">Ognuno vede solo i suoi soldi. Se è la prima volta, scrivi email e una password e premi <b>Crea account</b>.</p>
-    <form class="form" id="lf">
-      <label class="f">Email<input type="email" name="email" required autocomplete="email"></label>
-      <label class="f">Password<input type="password" name="pw" required minlength="6" autocomplete="current-password"></label>
-      <div class="btns"><button class="btn pri" type="submit">Entra</button><button class="btn" type="button" id="reg">Crea account</button></div>
-      <p class="kid" id="lmsg"></p>
-    </form></section></div>`;
-  const f = $('#lf'), msg = $('#lmsg');
-  const go = async reg => {
-    const email = f.email.value.trim(), pw = f.pw.value;
-    if (!email || pw.length < 6) { msg.textContent = 'Serve una email e una password di almeno 6 caratteri.'; return; }
-    msg.textContent = 'Un attimo…';
-    try {
-      if (reg) { const d = await store.registrati(email, pw); if (!d.session) { msg.textContent = 'Account creato. Controlla la mail per confermarlo, poi entra.'; return; } }
-      else await store.accedi(email, pw);
-      await avvia();
-    } catch (e) { msg.textContent = /invalid/i.test(e.message) ? 'Email o password sbagliate.' : e.message; }
-  };
-  f.onsubmit = e => { e.preventDefault(); go(false); };
-  $('#reg').onclick = () => go(true);
-}
-
 async function avvia() {
   await store.carica();
   store.ascolta(ev => { if (ev !== 'saved') render(); else { const t = document.querySelector('[data-saving]'); if (t) t.textContent = store.saving; } });
@@ -176,7 +150,7 @@ modo();
 (async () => {
   try {
     const ses = await store.sessione();
-    if (!ses) login(); else await avvia();
+    if (!ses) location.replace('/'); else await avvia(); // il login è nella Home dell'app
   } catch (e) { console.error(e); $('#app').innerHTML = `<div class="login"><section class="card"><h3>Qualcosa non va</h3><p class="kid">${esc(e.message)}</p></section></div>`; }
 })();
 export { toast };
