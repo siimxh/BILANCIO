@@ -46,11 +46,6 @@ export function resoconti(root, { s, per, mobile }) {
         <tfoot>${riga('Totale', { ...tot, disponibili: tot.disponibili }, false, true)}</tfoot>
       </table></div>`}
     </section>
-
-    <section class="card s12 c-ai">
-      <div class="ch"><h3>Report automatici</h3><span class="tag" style="margin-left:auto">in arrivo</span></div>
-      <p style="font-size:1.1rem">Un resoconto a fine mese, fatto bene come una presentazione, <span>e uno ogni settimana quando Revolut si aggiorna da solo.</span></p>
-    </section>
   </div>`;
   root.querySelector('#det')?.addEventListener('change', e => { dettagli = e.target.checked; resoconti(root, { s, per, mobile }); });
 }

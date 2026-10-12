@@ -132,7 +132,7 @@ function formImporta(s) {
     <label class="f">Su quale conto<select id="ic">${optConti(s, E.principale(s).id)}</select></label>
     <label class="f">File CSV<input type="file" id="if" accept=".csv,text/csv,text/plain"></label>
     <div id="ip"></div>
-    <p class="kid muted">Collegamento automatico con Revolut: in arrivo (Enable Banking), lo attiviamo insieme al primo avvio online.</p>`, d => {
+    <p class="kid muted">Se hai collegato Revolut, i movimenti nuovi arrivano da soli. Il CSV serve per i mesi vecchi o per altre banche.</p>`, d => {
     let pronti = [];
     $('#if', d).onchange = async e => {
       const f = e.target.files[0]; if (!f) return;

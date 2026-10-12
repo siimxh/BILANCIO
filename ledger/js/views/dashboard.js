@@ -47,7 +47,7 @@ export function dashboard(root, { s, per, vai, mobile }) {
       <div class="ch"><span class="ic">${icon.cash}</span><h3>Oggi puoi spendere</h3></div>
       <div class="big n" style="font-size:2.6rem">${big(K.oggi.perGiorno)}</div>
       <p class="kid">al giorno fino a fine mese (${K.oggi.giorniRim} giorni). In tutto <b class="n">${eur(Math.max(0, K.oggi.spendibile))}</b>.</p>
-      <p class="kid" data-tip="Saldo ${eur(K.oggi.saldoPr)}\n− cuscinetto ${eur(K.oggi.cuscinetto)}\n− pagamenti in arrivo ${eur(K.oggi.daPagare)}\n− salvadanai da riempire ${eur(K.oggi.quoteMancanti)}\n− tasse da mettere via ${eur(K.oggi.tasseMese)}\n= ${eur(K.oggi.spendibile)}">Come lo calcolo? <u>passa qui sopra</u></p>
+      <p class="kid" data-tip="Saldo ${eur(K.oggi.saldoPr)}\n− cuscinetto ${eur(K.oggi.cuscinetto)}\n− pagamenti in arrivo ${eur(K.oggi.daPagare)}\n− salvadanai da riempire ${eur(K.oggi.quoteMancanti)}\n− tasse da mettere via ${eur(K.oggi.tasseMese)}\n= ${eur(K.oggi.spendibile)}">Come lo calcolo? <u>${matchMedia('(hover: none)').matches ? 'tocca qui' : 'passa qui sopra'}</u></p>
     </section>
 
     <section class="card s3 c-pay" data-mob style="--o:3">
@@ -170,13 +170,8 @@ export function dashboard(root, { s, per, vai, mobile }) {
         : `<div class="rowsp"><div class="mid n">${eur(tx.accantonato)}</div><span class="sub">messi via su ${eur(tx.daPagare)} da pagare</span></div>${C.pbar(tx.daPagare ? tx.accantonato / tx.daPagare : 1, 'linear-gradient(90deg,#2E9C8A,#4ADE9B)', 22)}<p class="kid">${tx.manca ? `Mancano <b>${eur(tx.manca)}</b> nel salvadanaio tasse.` : 'Sei coperto.'} Regime: ${reg.tipo}, ${reg.pct}% di ogni incasso.</p>`}
     </section>
 
-    <section class="card s4 c-ai">
-      <div class="ch"><h3>Chiedi al tuo bilancio</h3><span class="tag" style="margin-left:auto">in arrivo</span></div>
-      <p>Quanto posso spendere <span>questo weekend senza…</span></p>
-      <div class="mic"><svg viewBox="0 0 16 16" style="width:18px"><rect x="6" y="2" width="4" height="8" rx="2" fill="#fff"/><path d="M4 8a4 4 0 0 0 8 0M8 12v2" stroke="#fff" stroke-width="1.4" fill="none" stroke-linecap="round"/></svg></div>
-    </section>
   </div>
-  <p class="foot">Spostamenti tra i tuoi conti, prelievi e versamenti nei salvadanai non contano come spese. Passa il mouse sui grafici per i dettagli.</p>`;
+  <p class="foot">Spostamenti tra i tuoi conti, prelievi e versamenti nei salvadanai non contano come spese. Passa il mouse (o tocca) sui grafici per i dettagli.</p>`;
 
   // corsa della spesa
   const A = st.cum.map((v, i) => (inCorso && addDays(per.start, i) > oggi) ? null : round2(v));

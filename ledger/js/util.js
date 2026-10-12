@@ -72,6 +72,16 @@ export function initTips() {
     tip.textContent = t.getAttribute('data-tip'); tip.hidden = false;
     tip.style.left = Math.min(e.clientX + 14, innerWidth - 260) + 'px'; tip.style.top = (e.clientY + 16) + 'px';
   });
+  // sul telefono il mouse non c'è: la spiegazione si apre con un tocco e si chiude toccando altrove
+  if (!matchMedia('(hover: none)').matches) return;
+  document.addEventListener('click', e => {
+    const t = e.target.closest && !e.target.closest('[data-owntip]') && e.target.closest('[data-tip]');
+    if (!t) { tip.hidden = true; return; }
+    tip.textContent = t.getAttribute('data-tip'); tip.hidden = false;
+    const r = t.getBoundingClientRect();
+    tip.style.left = Math.max(8, Math.min(r.left, innerWidth - 268)) + 'px';
+    tip.style.top = Math.min(r.bottom + 8, innerHeight - 120) + 'px';
+  });
 }
 
 export const icon = {

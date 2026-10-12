@@ -1,5 +1,6 @@
 // Guscio dell'app: login, barra in alto, periodo scelto, cambio sezione.
 import * as store from './store.js';
+import { importaBanca } from './banca.js';
 import { $, esc, icon, initTips, today, toast } from './util.js';
 import { MODI, periodo, sposta, etichetta, daSistemare } from './engine.js';
 import { formMovimento, apri, chiudi } from './views/forms.js';
@@ -143,6 +144,20 @@ async function avvia() {
   store.ascolta(ev => { if (ev !== 'saved') render(); else { const t = document.querySelector('[data-saving]'); if (t) t.textContent = store.saving; } });
   window.addEventListener('hashchange', () => { render(); $('#app').scrollTop = 0; window.scrollTo(0, 0); });
   render();
+  banca();
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') banca(); });
+}
+
+// movimenti nuovi da Revolut: arrivano da soli, quelli sconosciuti vanno in "Da sistemare"
+let inBanca = false;
+async function banca() {
+  if (inBanca || !store.online) return;
+  inBanca = true;
+  try {
+    const r = await importaBanca(store.state, store.modifica);
+    if (r?.nuovi) toast(`${r.nuovi} ${r.nuovi === 1 ? 'movimento nuovo' : 'movimenti nuovi'} da Revolut${r.daSistemare ? `, ${r.daSistemare} da sistemare` : ''}`);
+  } catch (e) { console.error(e); }
+  inBanca = false;
 }
 
 initTips();
